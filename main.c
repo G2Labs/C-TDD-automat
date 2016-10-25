@@ -196,12 +196,26 @@ int parseFile(const char* fullname) {
 /*================================================================================================*/
 int main(int argc, char** argv) {
 	int cnt, compile = 0, otherFlags = 0;
-	char* compilerFlags = "-I. -I..", *compilerName = "cc", buffer[200];
+	char* compilerFlags = "-I. -I..", *compilerName, buffer[200];
 	if (argc < 2) {
 		printf("No input files.\n");
 		return 1;
 	}
 	for (cnt = 1; cnt < argc; cnt++) {
+		if ((strcmp(argv[cnt], "-h") == 0) || (strcmp(argv[cnt], "--help") == 0)) {
+			printf("Usage:\n\t-c/--compile <compiler name> - force autocompilation after ");
+			printf("parsing and specify compiler\n");
+			printf("\t-f/--flags <compiler flags> - specify compilation flags ");
+			printf("(default: \"-I. -I..\"\n");
+			printf("\t-t/--tests <test_file1> <test_file2> ... - specify test source files ");
+			printf("- ATTENTION - this is needed when using other parameters and should be used ");
+			printf("as last!\n\n");
+			printf("Example: './<parserName> mod1Test.tst mod2.t mod3.Test' - will only parse ");
+			printf("test source files and produce equivalent *.c files ready for compilation.\n");
+			printf("Example: './<parserName> -c cc -t mod1Test.tst mod2.t mod3.Test' - will ");
+			printf("parse and automatically compile test source files into executables.\n\n\n");
+			return 0;
+		}
 		if ((strcmp(argv[cnt], "-c") == 0) || (strcmp(argv[cnt], "--compile") == 0)) {
 			compile = 1;
 			compilerName = argv[cnt + 1];
