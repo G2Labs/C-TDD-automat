@@ -13,21 +13,30 @@ A testing source file is simple C source file, but can have TDD tags in it. Chec
 Usage
 -
 The compiled parser (lets call it the "Parser") can be executed with or without parameters. If launched without parameters, it should look like this:
+
 	./Parser module1_Test.tst mod2.test mod3.t
+	
+	
 will produce files:
+
 	module1_Test.c
 	mod2.c
 	mod3.c
 
 If you want the parser to automatically compile after parsing, you should use parameters:
+
 	-c/--compile "<compiler name>" - to compile after each parse using a specified compiler (default: "cc")
 	-f/--flags "<compilation flags> - to specify flags for the compiler (default: "-I. -I..")
 	-t/--tests test1 test2 test3 - specify source files for parsing - ATTENTION - this parameter is required if other paramaters were used.
 	
+	
 To compile after parsing, you should launch:
+
 	./Parser -c "cc" -t module1_Test.tst mod2.test mod3.t
+
 
 Have fun hacking :)
 
-Copyright (C) 2016 Grzegorz Grzęda [PL] - licenced under GNU GPLv3
-**
+Licence
+-
+*Copyright (C) 2016 Grzegorz Grzęda [PL] - licenced under GNU GPLv3*
