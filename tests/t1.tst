@@ -15,4 +15,3 @@ ASSERT2(42,42,"Meaning of life?");
 INFO("Nothing :P");
 @After
 
-

@@ -15,9 +15,9 @@
  GNU General Public License for more details.
 
  You should have received a copy of the GNU General Public License
- along with Foobar; if not, write to the Free Software
+ along with C TDD Automatic Parser; if not, write to the Free Software
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- Ten plik jest częścią Foobar.
+ Ten plik jest częścią C TDD Automatic Parser.
 
  C TDD Automatic Parser jest wolnym oprogramowaniem; możesz go rozprowadzać dalej
  i/lub modyfikować na warunkach Powszechnej Licencji Publicznej GNU,

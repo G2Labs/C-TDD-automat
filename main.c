@@ -15,9 +15,9 @@
  GNU General Public License for more details.
 
  You should have received a copy of the GNU General Public License
- along with Foobar; if not, write to the Free Software
+ along with C TDD Automatic Parser; if not, write to the Free Software
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- Ten plik jest częścią Foobar.
+ Ten plik jest częścią C TDD Automatic Parser.
 
  C TDD Automatic Parser jest wolnym oprogramowaniem; możesz go rozprowadzać dalej
  i/lub modyfikować na warunkach Powszechnej Licencji Publicznej GNU,
@@ -39,14 +39,47 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "tdd.h"
 /*================================================================================================*/
-const char tokenTest[] = "@Test";
-#define TOKEN_TEST_ID 1
-const char tokenAfter[] = "@After";
-#define TOKEN_BEFORE_ID 2
-const char tokenBefore[] = "@Before";
-#define TOKEN_AFTER_ID 3
+typedef enum {
+	TEST, BEFORE, AFTER, NORMAL_LINE
+} TOKEN_TYPE;
+typedef struct {
+	const char* string;
+	const TOKEN_TYPE type;
+} TOKEN;
+TOKEN tokens[] = { { "@Test", TEST }, { "@Before", BEFORE }, { "@After", AFTER } };
+/*================================================================================================*/
+FILE *writtenFile;
+char* parsedModuleName;
+/*================================================================================================*/
+/*================================================================================================*/
+int createOutputFile(const char* moduleName) {
+	char name[200];
+	sprintf(name, "%s.c", moduleName);
+
+	if (writtenFile)
+		return 1;
+	writtenFile = fopen(name, "w");
+	if (!writtenFile)
+		return -1;
+	return 0;
+}
+/*================================================================================================*/
+void printWrittenFile(const char* format, ...) {
+	va_list args;
+	va_start(args, format);
+	vfprintf(writtenFile, format, args);
+	va_end(args);
+}
+/*================================================================================================*/
+void closeWrittenFile(void) {
+	if (writtenFile) {
+		fclose(writtenFile);
+		writtenFile = NULL;
+	}
+}
 /*================================================================================================*/
 /*================================================================================================*/
 int isLineAToken(const char* line, const char* token) {
@@ -54,76 +87,69 @@ int isLineAToken(const char* line, const char* token) {
 	return result;
 }
 /*================================================================================================*/
-int whichTokenALineHas(const char* line) {
-	if (isLineAToken(line, tokenTest))
-		return TOKEN_TEST_ID;
-	if (isLineAToken(line, tokenBefore))
-		return TOKEN_BEFORE_ID;
-	if (isLineAToken(line, tokenAfter))
-		return TOKEN_AFTER_ID;
-
-	return 0;
+TOKEN_TYPE whichTokenALineHas(const char* line) {
+	for (int i = 0; i < (sizeof(tokens) / sizeof(TOKEN)); i++) {
+		if (isLineAToken(line, tokens[i].string))
+			return tokens[i].type;
+	}
+	return NORMAL_LINE;
 }
 /*================================================================================================*/
-int isANormalLine(const char* line) {
-	return (whichTokenALineHas(line) == 0) ? 1 : 0;
-}
 /*================================================================================================*/
-char* getNewStringWithNameOnly(const char* fullname) {
-	int i;
-	char* name = malloc(strlen(fullname) + 1);
-	strcpy(name, fullname);
+void getNewStringWithNameOnly(const char* fullname) {
+	if (parsedModuleName) {
+		free(parsedModuleName);
+	}
+	parsedModuleName = malloc(strlen(fullname) + 1);
+	strcpy(parsedModuleName, fullname);
 
-	for (i = strlen(fullname); i > 0; i--)
-		if (name[i] == '.') {
-			name[i] = 0;
+	for (int i = strlen(fullname); i > 0; i--)
+		if (parsedModuleName[i] == '.') {
+			parsedModuleName[i] = 0;
 			break;
 		}
-
-	return name;
 }
 /*================================================================================================*/
-int parseFile(const char* fullname, int compileAfterParse) {
+/*================================================================================================*/
+int parseFile(const char* fullname) {
 	int noTokesYet = 1, testCnt = -1, setUpFlag = 0, tearDownFlag = 0;
-	char writeName[30], line[200];
+	char line[200];
 
 	FILE* parsedFile = fopen(fullname, "r");
 
 	if (!parsedFile)
 		return -1;
 
-	char* nameOnly = getNewStringWithNameOnly(fullname);
-	sprintf(writeName, "%s.c", nameOnly);
-	FILE* writtenFile = fopen(writeName, "w");
-	if (!parsedFile)
+	if (createOutputFile(parsedModuleName)) {
+		fclose(parsedFile);
 		return -1;
+	}
 
-	printf("Parsing file %s.\n", fullname);
 	for (int j = 0; feof(parsedFile) == 0; j++) {
 
 		fgets(line, sizeof(line), parsedFile);
-		if (whichTokenALineHas(line)) {
+		if (whichTokenALineHas(line) != NORMAL_LINE) {
 			if (noTokesYet) {
 				noTokesYet = 0;
 			} else {
-				fprintf(writtenFile, "return 0;}\t");
+				printWrittenFile("return 0;}\t");
 			}
 		}
 		switch (whichTokenALineHas(line)) {
-			case TOKEN_TEST_ID:
+			case TEST:
 				++testCnt;
-				fprintf(writtenFile, "int test%d(void){\n", testCnt);
+				printWrittenFile("int test%d(void){\n", testCnt);
 				break;
-			case TOKEN_BEFORE_ID:
+			case BEFORE:
 				setUpFlag = 1;
-				fprintf(writtenFile, "int setUp(void){\n");
+				printWrittenFile("int setUp(void){\n");
 				break;
-			case TOKEN_AFTER_ID:
+			case AFTER:
 				tearDownFlag = 1;
-				fprintf(writtenFile, "int tearDown(void){\n");
+				printWrittenFile("int tearDown(void){\n");
 				break;
 			default:
-				fprintf(writtenFile, "%s", line);
+				printWrittenFile("%s", line);
 				break;
 		}
 	}
@@ -131,56 +157,90 @@ int parseFile(const char* fullname, int compileAfterParse) {
 	fclose(parsedFile);
 
 	if (noTokesYet == 0)
-		fprintf(writtenFile, "}\n");
+		printWrittenFile("return 0;}\n");
 
-	fprintf(writtenFile, "int main(void){\n\tint pass = 0, result = 0;\n");
-	fprintf(writtenFile, "\tINFO_SHORT(\"Testing %s\");\n", nameOnly);
+	printWrittenFile("int main(void){\nint pass = 0, result = 0;\n");
+	printWrittenFile("INFO_SHORT(\"Testing %s\");\n", parsedModuleName);
 	if (setUpFlag) {
-		fprintf(writtenFile, "\tINFO_SHORT(\"   Set up\");\n");
-		fprintf(writtenFile, "\tsetUp();\n");
+		printWrittenFile("INFO_SHORT(\"   Set up\");\n");
+		printWrittenFile("setUp();\n");
 	}
 	for (int i = 0; i <= testCnt; i++) {
-		fprintf(writtenFile, "\tif(test%d() == 0){\n\t\tpass++;\n", i);
-		fprintf(writtenFile, "\t\tPASS_SHORT(\"   Test %d\");\n\t}else{\n", i);
-		fprintf(writtenFile, "\t\tFAIL_SHORT(\"   Test %d\");\n\t}\n", i);
+		printWrittenFile("if(test%d() == 0){\n\t\tpass++;\n", i);
+		printWrittenFile("PASS_SHORT(\"   Test %d\");\n}else{\n", i);
+		printWrittenFile("FAIL_SHORT(\"   Test %d\");\n}\n", i);
 	}
 	if (tearDownFlag) {
-		fprintf(writtenFile, "\tINFO_SHORT(\"   Tear down\");\n");
-		fprintf(writtenFile, "\ttearDown();\n");
+		printWrittenFile("INFO_SHORT(\"   Tear down\");\n");
+		printWrittenFile("tearDown();\n");
 	}
 
 	if (testCnt >= 0) {
-		fprintf(writtenFile, "\tif(pass != %d){\n", testCnt + 1);
-		fprintf(writtenFile,
-		      "\t\tERROR_SHORT(\"   %s failed - (%%d / %%d) test(s) went wrong.\", %d - pass, %d);\n",
-		      nameOnly, testCnt + 1, testCnt);
-		fprintf(writtenFile, "\t\tresult = 1;\n\t}else{\n");
-		fprintf(writtenFile, "\t\tPASS_SHORT(\"   %s - all %%d tests pased.\", %d);\n\t}\n", nameOnly,
+		printWrittenFile("if(pass != %d){\n", testCnt + 1);
+		printWrittenFile(
+		      "ERROR_SHORT(\"   %s failed - (%%d / %%d) test(s) went wrong.\", %d - pass, %d);\n",
+		      parsedModuleName, testCnt + 1, testCnt);
+		printWrittenFile("result = 1;\n}else{\n");
+		printWrittenFile("PASS_SHORT(\"   %s - all %%d tests pased.\", %d);\n}\n", parsedModuleName,
 		      testCnt);
 	}
 
-	fprintf(writtenFile, "\tRESET_COLORS();\n");
-	fprintf(writtenFile, "\treturn result;\n");
-	fprintf(writtenFile, "}\n");
-	fclose(writtenFile);
+	printWrittenFile("RESET_COLORS();\n");
+	printWrittenFile("return result;\n");
+	printWrittenFile("}\n");
+	closeWrittenFile();
 
-	if (compileAfterParse) {
-	printf("Compiling parsed file %s.c.\n", nameOnly);
-	sprintf(line, "cc -I. -I.. %s.c -o %s", nameOnly, nameOnly);
-		system(line);
-	}
-	free(nameOnly);
 	return 0;
 }
 /*================================================================================================*/
 /*================================================================================================*/
 int main(int argc, char** argv) {
+	int cnt, compile = 0, otherFlags = 0;
+	char* compilerFlags = "-I. -I..", *compilerName = "cc", buffer[200];
 	if (argc < 2) {
 		printf("No input files.\n");
 		return 1;
 	}
-	for (int i = 1; i < argc; i++) {
-		parseFile(argv[i], 1);
+	for (cnt = 1; cnt < argc; cnt++) {
+		if ((strcmp(argv[cnt], "-c") == 0) || (strcmp(argv[cnt], "--compile") == 0)) {
+			compile = 1;
+			compilerName = argv[cnt + 1];
+			cnt++;
+			otherFlags = 1;
+		}
+		if ((strcmp(argv[cnt], "-f") == 0) || (strcmp(argv[cnt], "--flags") == 0)) {
+			compilerFlags = argv[cnt + 1];
+			cnt++;
+			otherFlags = 1;
+		}
+		if ((strcmp(argv[cnt], "-t") == 0) || (strcmp(argv[cnt], "--tests") == 0)) {
+			cnt++;
+			otherFlags = 1;
+			break;
+		}
+	}
+
+	if (otherFlags) {
+		if (cnt == argc) {
+			printf("Bad parameter inputs.\n");
+			return 1;
+		}
+	} else
+		cnt = 1;
+
+	for (; cnt < argc; cnt++) {
+		getNewStringWithNameOnly(argv[cnt]);
+		printf("%s\t- parsing", parsedModuleName);
+		fflush(stdout);
+
+		if ((parseFile(argv[cnt]) == 0) && compile) {
+			printf(", comiling");
+			fflush(stdout);
+			sprintf(buffer, "%s %s %s.c -o %s", compilerName, compilerFlags, parsedModuleName,
+			      parsedModuleName);
+			system(buffer);
+		}
+		printf("\n");
 	}
 	return 0;
 }
