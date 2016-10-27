@@ -155,49 +155,54 @@ void getNewStringWithNameOnly(const char* fullname) {
 /*================================================================================================*/
 /*================================================================================================*/
 void appendBeginning(void) {
-	printWrittenFile("int main(void){\nint pass = 0, result = 0;\n");
-	printWrittenFile("INFO_SHORT(\"Testing module %s\");\n", parsedModuleName);
+	printWrittenFile("int main(void){\n");
+	printWrittenFile("\tint pass = 0, result = 0;\n");
+	printWrittenFile("\tINFO_SHORT(\"Testing module %s\");\n", parsedModuleName);
 }
 /*================================================================================================*/
 void appendGlobalSetUpInvocation(void) {
-	printWrittenFile("INFO_SHORT(\"Module %s --- Set up class\");\n", parsedModuleName);
-	printWrittenFile("setUpClass();\n");
+	printWrittenFile("\tINFO_SHORT(\"Module %s --- Set up class\");\n", parsedModuleName);
+	printWrittenFile("\tsetUpClass();\n");
 }
 /*================================================================================================*/
 void appendTestSetUpInvocation() {
-	printWrittenFile("setUp();\n");
+	printWrittenFile("\tsetUp();\n");
 }
 /*================================================================================================*/
 void appendTestTearDownInvocation() {
-	printWrittenFile("tearDown();\n");
+	printWrittenFile("\ttearDown();\n");
 }
 /*================================================================================================*/
 void printTestInvocation(int testNumber) {
-	printWrittenFile("if(test%d() == 0){\n\t\tpass++;\n", testNumber);
-	printWrittenFile("PASS_SHORT(\"   Test %d --- passed\");\n}else{\n", testNumber);
-	printWrittenFile("FAIL_SHORT(\"   Test %d --- failed\");\n}\n", testNumber);
+	printWrittenFile("\tif(test%d() == 0){\n", testNumber);
+	printWrittenFile("\t\tpass++;\n");
+	printWrittenFile("\t\tPASS_SHORT(\"   Test %d --- passed\");\n", testNumber);
+	printWrittenFile("\t}else{\n");
+	printWrittenFile("\t\tFAIL_SHORT(\"   Test %d --- failed\");\n", testNumber);
+	printWrittenFile("\t}\n");
 }
 /*================================================================================================*/
 void appendGlobalTearDownInvocation(void) {
-	printWrittenFile("INFO_SHORT(\"Module %s --- Tear down %s\");\n", parsedModuleName);
-	printWrittenFile("tearDownClass();\n");
+	printWrittenFile("\tINFO_SHORT(\"Module %s --- Tear down %s\");\n", parsedModuleName);
+	printWrittenFile("\ttearDownClass();\n");
 }
 /*================================================================================================*/
 void appendAfterTestLogic(int testCnt) {
-	printWrittenFile("if(pass != %d){\n", testCnt + 1);
+	printWrittenFile("\tif(pass != %d){\n", testCnt + 1);
 	printWrittenFile(
-	      "ERROR_SHORT(\"   %s failed - (%%d / %%d) test(s) went wrong.\", %d - pass, %d);\n",
+	      "\t\tERROR_SHORT(\"   %s failed - (%%d / %%d) test(s) went wrong.\", %d - pass, %d);\n",
 	      parsedModuleName, testCnt + 1, testCnt);
-	printWrittenFile("double d = (double)pass / (double)%d * 100.0;\n", testCnt + 1);
-	printWrittenFile("ERROR_SHORT(\"   only %%.2f %%c passed.\",d,0x25);\n", parsedModuleName);
-	printWrittenFile("result = 1;\n}else{\n");
-	printWrittenFile("PASS_SHORT(\"   %s - all %%d (100 %%c) tests pased.\", %d,0x25);\n}\n",
-	      parsedModuleName, testCnt);
+	printWrittenFile("\t\tdouble d = (double)pass / (double)%d * 100.0;\n", testCnt + 1);
+	printWrittenFile("\t\tERROR_SHORT(\"   only %%.2f %%c passed.\",d,0x25);\n", parsedModuleName);
+	printWrittenFile("\t\tresult = 1;\n");
+	printWrittenFile("\t}else{\n");
+	printWrittenFile("\t\tPASS_SHORT(\"   %s - all %%d (100 %%c) tests pased.\", %d,0x25);\n");
+	printWrittenFile("\t}\n", parsedModuleName, testCnt);
 }
 /*================================================================================================*/
 void appendEnding() {
-	printWrittenFile("RESET_COLORS();\n");
-	printWrittenFile("return result;\n");
+	printWrittenFile("\tRESET_COLORS();\n");
+	printWrittenFile("\treturn result;\n");
 	printWrittenFile("}\n");
 }
 /*================================================================================================*/
@@ -220,6 +225,9 @@ int parseFile(const char* fullname) {
 	for (int j = 0; feof(parsedFile) == 0; j++) {
 
 		fgets(line, sizeof(line), parsedFile);
+		if (feof(parsedFile))
+			break;
+
 		if (whichTokenALineHas(line) != NORMAL_LINE_TOKEN) {
 			if (noTokesYet) {
 				noTokesYet = 0;
@@ -241,12 +249,13 @@ int parseFile(const char* fullname) {
 				printWrittenFile("int setUpClass(void){\n");
 				break;
 			case AFTER_TOKEN:
-				tearDownFlag = 1;
-				printWrittenFile("int tearDown(void){\n");
+					tearDownFlag = 1;
+					printWrittenFile("int tearDown(void){\n");
+
 				break;
 			case AFTER_CLASS_TOKEN:
-				tearDownClassFlag = 1;
-				printWrittenFile("int tearDownClass(void){\n");
+					tearDownClassFlag = 1;
+					printWrittenFile("int tearDownClass(void){\n");
 				break;
 			default:
 				printWrittenFile("%s", line);
@@ -312,10 +321,10 @@ void printHelp() {
 /*================================================================================================*/
 /*================================================================================================*/
 int main(int argc, char** argv) {
-	int compile = 0, wereArgumentsUsed = 1, srcCnt = 1;
+	int runCompilation = 0, wereArgumentsUsed = 1, srcCnt = 1;
 	char* compilerFlags = "-I. -I..", *compilerName, buffer[200];
 	if (argc < 2) {
-		printf("No input files.\n");
+		printf("No input files\n");
 		return 1;
 	}
 	for (int cnt = 1; cnt < argc; cnt++) {
@@ -324,7 +333,7 @@ int main(int argc, char** argv) {
 				printHelp();
 				return 0;
 			case COMPILE_ARGUMENT:
-				compile = 1;
+				runCompilation = 1;
 				compilerName = argv[cnt + 1];
 				cnt++;
 				break;
@@ -345,7 +354,7 @@ int main(int argc, char** argv) {
 
 	if (wereArgumentsUsed) {
 		if (srcCnt == 1) {
-			printf("Bad parameter inputs.\n");
+			printf("Bad parameter inputs\n");
 			return 1;
 		}
 	} else {
@@ -359,7 +368,7 @@ int main(int argc, char** argv) {
 
 		int resultOfParsing = parseFile(argv[srcCnt]);
 
-		if ((resultOfParsing == 0) && compile) {
+		if ((resultOfParsing == 0) && runCompilation) {
 			printf(", comiling");
 			fflush(stdout);
 			sprintf(buffer, "%s %s %s.c -o %s", compilerName, compilerFlags, parsedModuleName,

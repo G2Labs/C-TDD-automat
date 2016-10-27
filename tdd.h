@@ -50,9 +50,11 @@
 #define CRITICAL_COLOR "\x1B[31;46m"
 #define RESET_COLORS() printf(DEFAULT_COLOR);
 /*================================================================================================*/
-#define SYSTEM_PRINT(FORMAT, ...) fprintf(stdout, FORMAT, ##__VA_ARGS__ )
+#ifndef SYSTEM_PRINT
+#	define SYSTEM_PRINT(FORMAT, ...) fprintf(stdout, FORMAT, ##__VA_ARGS__ )
+#endif
 /*================================================================================================*/
-#define PRINT(ESC, T,M,...)         SYSTEM_PRINT("%s[%4.4s] %s@%s:%.3d - " M "\n", ESC, T, __FILE__ "\b\b", __FUNCTION__, __LINE__, ##__VA_ARGS__ )
+#define PRINT(ESC, T,M,...)         SYSTEM_PRINT("%s[%4.4s] - %s@%s:%.3d - " M "\n", ESC, T, __FILE__ "\b\b", __FUNCTION__, __LINE__, ##__VA_ARGS__ )
 #define PRITN_SHORT(ESC, T, M, ...) SYSTEM_PRINT("%s[%4.4s] - " M "\n", ESC, T, ##__VA_ARGS__ )
 /*================================================================================================*/
 #define INFO(M, ...)	         PRINT      (DEFAULT_COLOR, "INFO",M, ##__VA_ARGS__ )
