@@ -43,18 +43,59 @@
 #include "tdd.h"
 /*================================================================================================*/
 typedef enum {
-	TEST, BEFORE, AFTER, BEFORE_CLASS, AFTER_CLASS, NORMAL_LINE
+	TEST_TOKEN, BEFORE_TOKEN, AFTER_TOKEN, BEFORE_CLASS_TOKEN, AFTER_CLASS_TOKEN, NORMAL_LINE_TOKEN
 } TOKEN_TYPE;
 typedef struct {
 	const char* string;
 	const TOKEN_TYPE type;
 } TOKEN;
-TOKEN tokens[] = { { "@Test", TEST }, { "@Before", BEFORE }, { "@After", AFTER }, {
-      "@BeforeClass",
-      BEFORE_CLASS }, { "@AfterClass", AFTER_CLASS } };
+TOKEN tokens[] = {
+      {
+            "@Test",
+            TEST_TOKEN },
+      {
+            "@Before",
+            BEFORE_TOKEN },
+      {
+            "@After",
+            AFTER_TOKEN },
+      {
+            "@BeforeClass",
+            BEFORE_CLASS_TOKEN },
+      {
+            "@AfterClass",
+            AFTER_CLASS_TOKEN } };
+/*================================================================================================*/
+typedef enum {
+	COMPILE_ARGUMENT, COMPILER_FLAGS_ARGUMENT, TEST_SOURCES_ARGUMENT, HELP_ARGUMENT, INPUT_ARGUMENT
+} ARGUMENT_TYPE;
+typedef struct {
+	const char* shorter;
+	const char* longer;
+	const ARGUMENT_TYPE type;
+} ARGUMENT;
+ARGUMENT arguments[] = {
+      {
+            "-h",
+            "--help",
+            HELP_ARGUMENT },
+      {
+            "-c",
+            "--compiler",
+            COMPILE_ARGUMENT },
+      {
+            "-f",
+            "--flags",
+            COMPILER_FLAGS_ARGUMENT },
+      {
+            "-t",
+            "--tests",
+            TEST_SOURCES_ARGUMENT } };
 /*================================================================================================*/
 FILE *writtenFile;
 char* parsedModuleName;
+/*================================================================================================*/
+/*================================================================================================*/
 /*================================================================================================*/
 /*================================================================================================*/
 int createOutputFile(const char* moduleName) {
@@ -94,7 +135,7 @@ TOKEN_TYPE whichTokenALineHas(const char* line) {
 		if (isLineAToken(line, tokens[i].string))
 			return tokens[i].type;
 	}
-	return NORMAL_LINE;
+	return NORMAL_LINE_TOKEN;
 }
 /*================================================================================================*/
 /*================================================================================================*/
@@ -113,10 +154,58 @@ void getNewStringWithNameOnly(const char* fullname) {
 }
 /*================================================================================================*/
 /*================================================================================================*/
+void appendBeginning(void) {
+	printWrittenFile("int main(void){\nint pass = 0, result = 0;\n");
+	printWrittenFile("INFO_SHORT(\"Testing module %s\");\n", parsedModuleName);
+}
+/*================================================================================================*/
+void appendGlobalSetUpInvocation(void) {
+	printWrittenFile("INFO_SHORT(\"Module %s --- Set up class\");\n", parsedModuleName);
+	printWrittenFile("setUpClass();\n");
+}
+/*================================================================================================*/
+void appendTestSetUpInvocation() {
+	printWrittenFile("setUp();\n");
+}
+/*================================================================================================*/
+void appendTestTearDownInvocation() {
+	printWrittenFile("tearDown();\n");
+}
+/*================================================================================================*/
+void printTestInvocation(int testNumber) {
+	printWrittenFile("if(test%d() == 0){\n\t\tpass++;\n", testNumber);
+	printWrittenFile("PASS_SHORT(\"   Test %d --- passed\");\n}else{\n", testNumber);
+	printWrittenFile("FAIL_SHORT(\"   Test %d --- failed\");\n}\n", testNumber);
+}
+/*================================================================================================*/
+void appendGlobalTearDownInvocation(void) {
+	printWrittenFile("INFO_SHORT(\"Module %s --- Tear down %s\");\n", parsedModuleName);
+	printWrittenFile("tearDownClass();\n");
+}
+/*================================================================================================*/
+void appendAfterTestLogic(int testCnt) {
+	printWrittenFile("if(pass != %d){\n", testCnt + 1);
+	printWrittenFile(
+	      "ERROR_SHORT(\"   %s failed - (%%d / %%d) test(s) went wrong.\", %d - pass, %d);\n",
+	      parsedModuleName, testCnt + 1, testCnt);
+	printWrittenFile("double d = (double)pass / (double)%d * 100.0;\n", testCnt + 1);
+	printWrittenFile("ERROR_SHORT(\"   only %%.2f %%c passed.\",d,0x25);\n", parsedModuleName);
+	printWrittenFile("result = 1;\n}else{\n");
+	printWrittenFile("PASS_SHORT(\"   %s - all %%d (100 %%c) tests pased.\", %d,0x25);\n}\n",
+	      parsedModuleName, testCnt);
+}
+/*================================================================================================*/
+void appendEnding() {
+	printWrittenFile("RESET_COLORS();\n");
+	printWrittenFile("return result;\n");
+	printWrittenFile("}\n");
+}
+/*================================================================================================*/
+/*================================================================================================*/
 int parseFile(const char* fullname) {
 	int noTokesYet = 1, testCnt = -1, setUpFlag = 0, tearDownFlag = 0, setUpClassFlag = 0,
 	      tearDownClassFlag = 0;
-	char line[200];
+	char line[400];
 
 	FILE* parsedFile = fopen(fullname, "r");
 
@@ -131,7 +220,7 @@ int parseFile(const char* fullname) {
 	for (int j = 0; feof(parsedFile) == 0; j++) {
 
 		fgets(line, sizeof(line), parsedFile);
-		if (whichTokenALineHas(line) != NORMAL_LINE) {
+		if (whichTokenALineHas(line) != NORMAL_LINE_TOKEN) {
 			if (noTokesYet) {
 				noTokesYet = 0;
 			} else {
@@ -139,23 +228,23 @@ int parseFile(const char* fullname) {
 			}
 		}
 		switch (whichTokenALineHas(line)) {
-			case TEST:
+			case TEST_TOKEN:
 				++testCnt;
 				printWrittenFile("int test%d(void){\n", testCnt);
 				break;
-			case BEFORE:
+			case BEFORE_TOKEN:
 				setUpFlag = 1;
 				printWrittenFile("int setUp(void){\n");
 				break;
-			case BEFORE_CLASS:
+			case BEFORE_CLASS_TOKEN:
 				setUpClassFlag = 1;
 				printWrittenFile("int setUpClass(void){\n");
 				break;
-			case AFTER:
+			case AFTER_TOKEN:
 				tearDownFlag = 1;
 				printWrittenFile("int tearDown(void){\n");
 				break;
-			case AFTER_CLASS:
+			case AFTER_CLASS_TOKEN:
 				tearDownClassFlag = 1;
 				printWrittenFile("int tearDownClass(void){\n");
 				break;
@@ -170,103 +259,107 @@ int parseFile(const char* fullname) {
 	if (noTokesYet == 0)
 		printWrittenFile("return 0;}\n");
 
-	printWrittenFile("int main(void){\nint pass = 0, result = 0;\n");
-	printWrittenFile("INFO_SHORT(\"Testing module %s\");\n", parsedModuleName);
+	appendBeginning();
 	if (setUpClassFlag) {
-		printWrittenFile("INFO_SHORT(\"Module %s --- Set up class\");\n", parsedModuleName);
-		printWrittenFile("setUpClass();\n");
+		appendGlobalSetUpInvocation();
 	}
 	for (int i = 0; i <= testCnt; i++) {
 		if (setUpFlag) {
-			printWrittenFile("setUp();\n");
+			appendTestSetUpInvocation();
 		}
-		printWrittenFile("if(test%d() == 0){\n\t\tpass++;\n", i);
-		printWrittenFile("PASS_SHORT(\"   Test %d --- passed\");\n}else{\n", i);
-		printWrittenFile("FAIL_SHORT(\"   Test %d --- failed\");\n}\n", i);
+		printTestInvocation(i);
 		if (tearDownFlag) {
-			printWrittenFile("tearDown();\n");
+			appendTestTearDownInvocation();
 		}
 	}
 	if (tearDownClassFlag) {
-		printWrittenFile("INFO_SHORT(\"Module %s --- Tear down %s\");\n", parsedModuleName);
-		printWrittenFile("tearDownClass();\n");
+		appendGlobalTearDownInvocation();
 	}
 
 	if (testCnt >= 0) {
-		printWrittenFile("if(pass != %d){\n", testCnt + 1);
-		printWrittenFile(
-		      "ERROR_SHORT(\"   %s failed - (%%d / %%d) test(s) went wrong.\", %d - pass, %d);\n",
-		      parsedModuleName, testCnt + 1, testCnt);
-		printWrittenFile("double d = (double)pass / (double)%d * 100.0;\n", testCnt + 1);
-		printWrittenFile("ERROR_SHORT(\"   only %%.2f %%c passed.\",d,0x25);\n", parsedModuleName);
-		printWrittenFile("result = 1;\n}else{\n");
-		printWrittenFile("PASS_SHORT(\"   %s - all %%d (100 %%c) tests pased.\", %d,0x25);\n}\n",
-		      parsedModuleName, testCnt);
+		appendAfterTestLogic(testCnt);
 	}
 
-	printWrittenFile("RESET_COLORS();\n");
-	printWrittenFile("return result;\n");
-	printWrittenFile("}\n");
+	appendEnding();
 	closeWrittenFile();
 
 	return 0;
 }
 /*================================================================================================*/
 /*================================================================================================*/
+ARGUMENT_TYPE whatArgumentIs(char* argument) {
+	for (int i = 0; i < (sizeof(arguments) / sizeof(ARGUMENT)); i++) {
+		if ((strcmp(argument, arguments[i].shorter) == 0)
+		      || (strcmp(argument, arguments[i].longer) == 0))
+			return arguments[i].type;
+	}
+	return INPUT_ARGUMENT;
+}
+/*================================================================================================*/
+void printHelp() {
+	printf("Usage:\n\t-c/--compile <compiler name> - force autocompilation after ");
+	printf("parsing and specify compiler\n");
+	printf("\t-f/--flags <compiler flags> - specify compilation flags ");
+	printf("(default: \"-I. -I..\"\n");
+	printf("\t-t/--tests <test_file1> <test_file2> ... - specify test source files ");
+	printf("- ATTENTION - this is needed when using other parameters and should be used ");
+	printf("as last!\n\n");
+	printf("Example: './<parserName> mod1Test.tst mod2.t mod3.Test' - will only parse ");
+	printf("test source files and produce equivalent *.c files ready for compilation.\n");
+	printf("Example: './<parserName> -c cc -t mod1Test.tst mod2.t mod3.Test' - will ");
+	printf("parse and automatically compile test source files into executables.\n\n\n");
+}
+/*================================================================================================*/
+/*================================================================================================*/
 int main(int argc, char** argv) {
-	int cnt, compile = 0, otherFlags = 0;
+	int compile = 0, wereArgumentsUsed = 1, srcCnt = 1;
 	char* compilerFlags = "-I. -I..", *compilerName, buffer[200];
 	if (argc < 2) {
 		printf("No input files.\n");
 		return 1;
 	}
-	for (cnt = 1; cnt < argc; cnt++) {
-		if ((strcmp(argv[cnt], "-h") == 0) || (strcmp(argv[cnt], "--help") == 0)) {
-			printf("Usage:\n\t-c/--compile <compiler name> - force autocompilation after ");
-			printf("parsing and specify compiler\n");
-			printf("\t-f/--flags <compiler flags> - specify compilation flags ");
-			printf("(default: \"-I. -I..\"\n");
-			printf("\t-t/--tests <test_file1> <test_file2> ... - specify test source files ");
-			printf("- ATTENTION - this is needed when using other parameters and should be used ");
-			printf("as last!\n\n");
-			printf("Example: './<parserName> mod1Test.tst mod2.t mod3.Test' - will only parse ");
-			printf("test source files and produce equivalent *.c files ready for compilation.\n");
-			printf("Example: './<parserName> -c cc -t mod1Test.tst mod2.t mod3.Test' - will ");
-			printf("parse and automatically compile test source files into executables.\n\n\n");
-			return 0;
-		}
-		if ((strcmp(argv[cnt], "-c") == 0) || (strcmp(argv[cnt], "--compile") == 0)) {
-			compile = 1;
-			compilerName = argv[cnt + 1];
-			cnt++;
-			otherFlags = 1;
-		}
-		if ((strcmp(argv[cnt], "-f") == 0) || (strcmp(argv[cnt], "--flags") == 0)) {
-			compilerFlags = argv[cnt + 1];
-			cnt++;
-			otherFlags = 1;
-		}
-		if ((strcmp(argv[cnt], "-t") == 0) || (strcmp(argv[cnt], "--tests") == 0)) {
-			cnt++;
-			otherFlags = 1;
-			break;
+	for (int cnt = 1; cnt < argc; cnt++) {
+		switch (whatArgumentIs(argv[cnt])) {
+			case HELP_ARGUMENT:
+				printHelp();
+				return 0;
+			case COMPILE_ARGUMENT:
+				compile = 1;
+				compilerName = argv[cnt + 1];
+				cnt++;
+				break;
+			case COMPILER_FLAGS_ARGUMENT:
+				compilerFlags = argv[cnt + 1];
+				cnt++;
+				break;
+			case TEST_SOURCES_ARGUMENT:
+				srcCnt = cnt + 1;
+				cnt = argc;
+				break;
+			default:
+				wereArgumentsUsed = 0;
+				cnt = argc;
+				break;
 		}
 	}
 
-	if (otherFlags) {
-		if (cnt == argc) {
+	if (wereArgumentsUsed) {
+		if (srcCnt == 1) {
 			printf("Bad parameter inputs.\n");
 			return 1;
 		}
-	} else
-		cnt = 1;
+	} else {
+		srcCnt = 1;
+	}
 
-	for (; cnt < argc; cnt++) {
-		getNewStringWithNameOnly(argv[cnt]);
+	for (; srcCnt < argc; srcCnt++) {
+		getNewStringWithNameOnly(argv[srcCnt]);
 		printf("%s\t- parsing", parsedModuleName);
 		fflush(stdout);
 
-		if ((parseFile(argv[cnt]) == 0) && compile) {
+		int resultOfParsing = parseFile(argv[srcCnt]);
+
+		if ((resultOfParsing == 0) && compile) {
 			printf(", comiling");
 			fflush(stdout);
 			sprintf(buffer, "%s %s %s.c -o %s", compilerName, compilerFlags, parsedModuleName,
