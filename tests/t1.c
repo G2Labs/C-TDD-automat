@@ -56,7 +56,7 @@ int main(void){
 		ERROR_SHORT("   only %.2f %c passed.",d,0x25);
 		result = 1;
 	}else{
-		PASS_SHORT("    - all %d (100 %c) tests pased.", 21833552,0x25);
+		PASS_SHORT("   tests/t1 - all %d (100 %c) tests pased.", 4,0x25);
 	}
 	RESET_COLORS();
 	return result;

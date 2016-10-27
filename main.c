@@ -196,8 +196,9 @@ void appendAfterTestLogic(int testCnt) {
 	printWrittenFile("\t\tERROR_SHORT(\"   only %%.2f %%c passed.\",d,0x25);\n", parsedModuleName);
 	printWrittenFile("\t\tresult = 1;\n");
 	printWrittenFile("\t}else{\n");
-	printWrittenFile("\t\tPASS_SHORT(\"   %s - all %%d (100 %%c) tests pased.\", %d,0x25);\n");
-	printWrittenFile("\t}\n", parsedModuleName, testCnt);
+	printWrittenFile("\t\tPASS_SHORT(\"   %s - all %%d (100 %%c) tests pased.\", %d,0x25);\n",
+	      parsedModuleName, testCnt + 1);
+	printWrittenFile("\t}\n");
 }
 /*================================================================================================*/
 void appendEnding() {
