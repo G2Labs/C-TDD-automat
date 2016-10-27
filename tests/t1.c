@@ -19,40 +19,46 @@ return 0;}	int tearDown(void){
 return 0;}
 int main(void){
 int pass = 0, result = 0;
-INFO_SHORT("Testing tests/t1");
-INFO_SHORT("   Set up");
+INFO_SHORT("Testing module tests/t1");
 setUp();
 if(test0() == 0){
 		pass++;
-PASS_SHORT("   Test 0");
+PASS_SHORT("   Test 0 --- passed");
 }else{
-FAIL_SHORT("   Test 0");
+FAIL_SHORT("   Test 0 --- failed");
 }
+tearDown();
+setUp();
 if(test1() == 0){
 		pass++;
-PASS_SHORT("   Test 1");
+PASS_SHORT("   Test 1 --- passed");
 }else{
-FAIL_SHORT("   Test 1");
+FAIL_SHORT("   Test 1 --- failed");
 }
+tearDown();
+setUp();
 if(test2() == 0){
 		pass++;
-PASS_SHORT("   Test 2");
+PASS_SHORT("   Test 2 --- passed");
 }else{
-FAIL_SHORT("   Test 2");
+FAIL_SHORT("   Test 2 --- failed");
 }
+tearDown();
+setUp();
 if(test3() == 0){
 		pass++;
-PASS_SHORT("   Test 3");
+PASS_SHORT("   Test 3 --- passed");
 }else{
-FAIL_SHORT("   Test 3");
+FAIL_SHORT("   Test 3 --- failed");
 }
-INFO_SHORT("   Tear down");
 tearDown();
 if(pass != 4){
 ERROR_SHORT("   tests/t1 failed - (%d / %d) test(s) went wrong.", 4 - pass, 3);
+double d = (double)pass / (double)4 * 100.0;
+ERROR_SHORT("   only %.2f %c passed.",d,0x25);
 result = 1;
 }else{
-PASS_SHORT("   tests/t1 - all %d tests pased.", 3);
+PASS_SHORT("   tests/t1 - all %d (100 %c) tests pased.", 3,0x25);
 }
 RESET_COLORS();
 return result;

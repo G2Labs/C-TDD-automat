@@ -43,13 +43,15 @@
 #include "tdd.h"
 /*================================================================================================*/
 typedef enum {
-	TEST, BEFORE, AFTER, NORMAL_LINE
+	TEST, BEFORE, AFTER, BEFORE_CLASS, AFTER_CLASS, NORMAL_LINE
 } TOKEN_TYPE;
 typedef struct {
 	const char* string;
 	const TOKEN_TYPE type;
 } TOKEN;
-TOKEN tokens[] = { { "@Test", TEST }, { "@Before", BEFORE }, { "@After", AFTER } };
+TOKEN tokens[] = { { "@Test", TEST }, { "@Before", BEFORE }, { "@After", AFTER }, {
+      "@BeforeClass",
+      BEFORE_CLASS }, { "@AfterClass", AFTER_CLASS } };
 /*================================================================================================*/
 FILE *writtenFile;
 char* parsedModuleName;
@@ -112,7 +114,8 @@ void getNewStringWithNameOnly(const char* fullname) {
 /*================================================================================================*/
 /*================================================================================================*/
 int parseFile(const char* fullname) {
-	int noTokesYet = 1, testCnt = -1, setUpFlag = 0, tearDownFlag = 0;
+	int noTokesYet = 1, testCnt = -1, setUpFlag = 0, tearDownFlag = 0, setUpClassFlag = 0,
+	      tearDownClassFlag = 0;
 	char line[200];
 
 	FILE* parsedFile = fopen(fullname, "r");
@@ -144,9 +147,17 @@ int parseFile(const char* fullname) {
 				setUpFlag = 1;
 				printWrittenFile("int setUp(void){\n");
 				break;
+			case BEFORE_CLASS:
+				setUpClassFlag = 1;
+				printWrittenFile("int setUpClass(void){\n");
+				break;
 			case AFTER:
 				tearDownFlag = 1;
 				printWrittenFile("int tearDown(void){\n");
+				break;
+			case AFTER_CLASS:
+				tearDownClassFlag = 1;
+				printWrittenFile("int tearDownClass(void){\n");
 				break;
 			default:
 				printWrittenFile("%s", line);
@@ -160,19 +171,25 @@ int parseFile(const char* fullname) {
 		printWrittenFile("return 0;}\n");
 
 	printWrittenFile("int main(void){\nint pass = 0, result = 0;\n");
-	printWrittenFile("INFO_SHORT(\"Testing %s\");\n", parsedModuleName);
-	if (setUpFlag) {
-		printWrittenFile("INFO_SHORT(\"   Set up\");\n");
-		printWrittenFile("setUp();\n");
+	printWrittenFile("INFO_SHORT(\"Testing module %s\");\n", parsedModuleName);
+	if (setUpClassFlag) {
+		printWrittenFile("INFO_SHORT(\"Module %s --- Set up class\");\n", parsedModuleName);
+		printWrittenFile("setUpClass();\n");
 	}
 	for (int i = 0; i <= testCnt; i++) {
+		if (setUpFlag) {
+			printWrittenFile("setUp();\n");
+		}
 		printWrittenFile("if(test%d() == 0){\n\t\tpass++;\n", i);
-		printWrittenFile("PASS_SHORT(\"   Test %d\");\n}else{\n", i);
-		printWrittenFile("FAIL_SHORT(\"   Test %d\");\n}\n", i);
+		printWrittenFile("PASS_SHORT(\"   Test %d --- passed\");\n}else{\n", i);
+		printWrittenFile("FAIL_SHORT(\"   Test %d --- failed\");\n}\n", i);
+		if (tearDownFlag) {
+			printWrittenFile("tearDown();\n");
+		}
 	}
-	if (tearDownFlag) {
-		printWrittenFile("INFO_SHORT(\"   Tear down\");\n");
-		printWrittenFile("tearDown();\n");
+	if (tearDownClassFlag) {
+		printWrittenFile("INFO_SHORT(\"Module %s --- Tear down %s\");\n", parsedModuleName);
+		printWrittenFile("tearDownClass();\n");
 	}
 
 	if (testCnt >= 0) {
@@ -180,9 +197,11 @@ int parseFile(const char* fullname) {
 		printWrittenFile(
 		      "ERROR_SHORT(\"   %s failed - (%%d / %%d) test(s) went wrong.\", %d - pass, %d);\n",
 		      parsedModuleName, testCnt + 1, testCnt);
+		printWrittenFile("double d = (double)pass / (double)%d * 100.0;\n", testCnt + 1);
+		printWrittenFile("ERROR_SHORT(\"   only %%.2f %%c passed.\",d,0x25);\n", parsedModuleName);
 		printWrittenFile("result = 1;\n}else{\n");
-		printWrittenFile("PASS_SHORT(\"   %s - all %%d tests pased.\", %d);\n}\n", parsedModuleName,
-		      testCnt);
+		printWrittenFile("PASS_SHORT(\"   %s - all %%d (100 %%c) tests pased.\", %d,0x25);\n}\n",
+		      parsedModuleName, testCnt);
 	}
 
 	printWrittenFile("RESET_COLORS();\n");
@@ -256,6 +275,7 @@ int main(int argc, char** argv) {
 		}
 		printf("\n");
 	}
+	printf("Finished\n");
 	return 0;
 }
 /*================================================================================================*/
